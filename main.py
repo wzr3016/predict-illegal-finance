@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from decisiontree import DTree
 import matplotlib.pyplot as plt
 from sklearn import tree
 
@@ -12,6 +13,7 @@ np.set_printoptions(suppress=True)
 
 base_file_name = './train/base_info.csv'
 label_file_name = './train/entprise_info.csv'
+test_file_name = './entprise_evaluate.csv'
 
 # 读取文件
 base = pd.read_csv(base_file_name)
@@ -40,39 +42,70 @@ del base['dom'], base['oploc'], base['opscope']
 base1 = pd.merge(base, label, on='id', how='left')
 
 # 删除id列，日期列，大写字母列， orgid:机构标识, jobid:职位标识
-del base1['id'], base1['industryphy'], base1['opfrom'], base1['orgid'], base1['jobid']
-# print(base1)
+del base1['industryphy'], base1['opfrom'], base1['orgid'], base1['jobid']
+# 用于存储预测标签
+temp_test_set = base1[base1['label'].isnull()]
+final_test_set = pd.DataFrame(columns=['id', 'label'])
+final_test_set['id'] = temp_test_set['id']
+final_test_set['label'] = temp_test_set['label']
+del base1['id']
+
+# 分割出训练集
 train_set = base1[base1['label'].notnull()]
 y_train_label = train_set['label']
-del train_set['label']
+# del train_set['label']
 # print()
 # print(train_set)
 
 # 训练集的标签
 train_label_list = list(train_set.columns)
 # print(train_label_list)
-has_nan = list(train_set.isnull().sum()>0)
+has_nan = list(train_set.isnull().sum() > 0)
 
 # 含有少量缺失值的特征
 nan_list = []
 for i in range(len(has_nan)):
     if has_nan[i]:
         nan_list.append(train_label_list[i])
-print(nan_list)
-for i in train_label_list:
-    print(train_set[i].describe())
+# print(nan_list)
+# for i in train_label_list:
+#     print(i)
+# 填充缺失值
 for i in nan_list:
     # print(train_set[i].median())
     train_set[i].fillna(train_set[i].median(), inplace=True)
-print(train_set.isnull().sum()>0)
+# print(train_set.isnull().sum()>0)
+
+# print(train_set)
+# print(train_label_list)
+
 test_set = base1[base1['label'].isnull()]
+# print(test_set)
 del test_set['label']
 # print()
 # print(test_set)
 test_set_array = test_set.to_numpy()
+# print(test_set_array.shape)
 
-# # 生成决策树
-# Dt = tree.DecisionTreeClassifier()
-# Dt = Dt.fit(train_set, y_train_label)
-# y_test_label = Dt.predict(test_set)
-# print(y_test_label)
+# 生成二叉决策树
+dt = DTree()
+tree = dt.fit(train_set)
+test_label = []
+# print(test_set_array[29])
+for i in range(test_set_array.shape[0]):
+    # print(test_set_array[i], end='')
+    try:
+        test_ans = dt.predict(test_set_array[i])
+        # print(i, ":       ", test_ans)
+        test_label.append(test_ans)
+    except KeyError:
+        test_label.append(0)
+
+# 将预测结果保存并写入文件
+final_test_set['label'] = test_label
+test_submit = pd.read_csv(test_file_name)
+del test_submit['score']
+test_submit = pd.merge(test_submit, final_test_set, on='id', how='left')
+test_submit.rename(columns={'label': 'score'}, inplace=True)
+# print(test_submit)
+test_submit.to_csv(test_file_name, sep=',', header=True, index=False)
