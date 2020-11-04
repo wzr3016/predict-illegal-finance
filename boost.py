@@ -4,6 +4,9 @@ from decisiontree import DTree
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier
 import catboost as cb
+from catboost import cv, Pool
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
 np.set_printoptions(linewidth=1000)
 np.set_printoptions(suppress=True)
@@ -91,43 +94,43 @@ for i in columns_to_fill:
     test_set[i].fillna(test_set[i].mean(), inplace=True)
 
 # print(test_set)
-test_set_array = test_set.to_numpy()
+# test_set_array = test_set.to_numpy()
+
+categorical_features_indices = np.where(train_set.dtypes != np.float)[0]
+# 生成训练集和验证集
+x_train, x_validation, y_train, y_validation = train_test_split(train_set, y_train_label, train_size=0.9, random_state=42)
 
 # 生成二叉决策树,训练集中类别数量
 # num_0:   13884
 # num_1:   981
-# dt = DecisionTreeClassifier(max_depth=6)
 
-dt = cb.CatBoostClassifier()
-dt.fit(train_set, y_train_label)
-test_label = dt.predict(test_set)
+# dt = cb.CatBoostClassifier(custom_loss=['Accuracy'], random_seed=42, logging_level='Silent')
+# dt.fit(x_train, y_train, cat_features=categorical_features_indices, eval_set=(x_validation, y_validation))
 
-# # 利用训练集，对模型进行评估
-# train_label_predict = dt.predict(train_set)
-# tp, fp, fn, tn = 0, 0, 0, 0
-# y_train_label_list = list(y_train_label)
-# for i in range(len(y_train_label_list)):
-#     if train_label_predict[i]==0:
-#         if y_train_label_list[i]==0:
-#             tp += 1
-#         else:
-#             fp += 1
-#     else:
-#         if y_train_label_list[i]==0:
-#             fn += 1
-#         else:
-#             tn += 1
-# print("tp:   ", tp)
-# print("fp:   ", fp)
-# print("fn:   ", fn)
-# print("tn:   ", tn)
-# print("tp+tn:  ", tp+tn)
-# print("0类预测正确率：  ", tp/y_train_label_list.count(0))
-# print("1类预测正确率：  ", tn/y_train_label_list.count(1))
-# print("总体预测正确率： ", (tn+tp)/len(y_train_label_list))
+# cross validation
+
+params = {
+    'iterations': 1000,
+    'learning_rate': 0.1,
+    'eval_metric': 'Accuracy',
+    'random_seed': 42,
+    'logging_level': 'Silent',
+    'use_best_model': True
+}
+
+train_pool = Pool(x_train, y_train, cat_features=categorical_features_indices)
+validate_pool = Pool(x_validation, y_validation, cat_features=categorical_features_indices)
+
+best_model = cb.CatBoostClassifier(**params)
+best_model.fit(train_pool, eval_set=validate_pool)
+print('Best model validation accuracy: {:.4}'.format(
+    accuracy_score(y_validation, best_model.predict(x_validation))
+))
+
+test_label = best_model.predict(test_set)
+print(list(test_label).count(0))
 
 # 将预测结果保存并写入文件
-print(list(test_label).count(0))
 final_test_set['label'] = test_label
 
 # 需要提交的顺序
@@ -138,6 +141,6 @@ del test_submit['score']
 test_submit = pd.merge(test_submit, final_test_set, on='id', how='left')
 test_submit.rename(columns={'label': 'score'}, inplace=True)
 
-# 写入文件
-save_test_res_name = './test_label_folder/entprise_evaluate1_catboost_classifier_1102_depth_drop0.4.csv'
-test_submit.to_csv(save_test_res_name, sep=',', header=True, index=False)
+# # 写入文件
+# save_test_res_name = './test_label_folder/set_params_cb_classifier_1104_depth_drop0.4_learn0.1.csv'
+# test_submit.to_csv(save_test_res_name, sep=',', header=True, index=False)
