@@ -1,12 +1,11 @@
 import pandas as pd
 import numpy as np
-from decisiontree import DTree
 import matplotlib.pyplot as plt
-from sklearn.tree import DecisionTreeClassifier
 import catboost as cb
 from catboost import cv, Pool
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from sklearn.ensemble import RandomForestRegressor
 
 np.set_printoptions(linewidth=1000)
 np.set_printoptions(suppress=True)
@@ -28,17 +27,18 @@ missingDF.columns = ['feature', 'miss_num']
 missingDF['miss_percentage'] = missingDF['miss_num'] / base.shape[0]
 # 输出每列的缺失数量和缺失率
 # print(missingDF)
+
 # print(base.shape)
 
 # 设置去除缺失率的阈值
-thr = (1 - 0.4) * base.shape[0]
+thr = (1 - 0.7) * base.shape[0]
 
 # 去除缺失率较大的特征
 base = base.dropna(thresh=thr, axis=1)
 # print(base.columns)
 
-# 删除企业的经营地址、经营范围、经营场所等无用数据
-del base['dom'], base['oploc'], base['opscope']
+# 删除企业的经营地址、经营范围、经营场所等无用数据、经营方式、经营期限止
+del base['dom'], base['oploc'], base['opscope'], base['opform'], base['opto']
 
 # 合并base文件和标签文件
 base1 = pd.merge(base, label, on='id', how='left')
@@ -69,7 +69,7 @@ for i in range(len(has_nan)):
     if has_nan[i]:
         nan_list.append(train_label_list[i])
 
-# 填充缺失值
+# 训练集填充缺失值，中位数填充
 for i in nan_list:
     # print(train_set[i].median())
     train_set[i].fillna(train_set[i].mean(), inplace=True)
@@ -89,7 +89,7 @@ columns_to_fill = []
 for i in range(len(test_columns_names)):
     if test_nan_list[i]:
         columns_to_fill.append(test_columns_names[i])
-# 测试集填充缺失值
+# 测试集填充缺失值,中位数填充
 for i in columns_to_fill:
     test_set[i].fillna(test_set[i].mean(), inplace=True)
 
@@ -98,7 +98,7 @@ for i in columns_to_fill:
 
 categorical_features_indices = np.where(train_set.dtypes != np.float)[0]
 # 生成训练集和验证集
-x_train, x_validation, y_train, y_validation = train_test_split(train_set, y_train_label, train_size=0.9, random_state=42)
+x_train, x_validation, y_train, y_validation = train_test_split(train_set, y_train_label, train_size=0.95, random_state=999)
 
 # 生成二叉决策树,训练集中类别数量
 # num_0:   13884
@@ -121,13 +121,35 @@ params = {
 train_pool = Pool(x_train, y_train, cat_features=categorical_features_indices)
 validate_pool = Pool(x_validation, y_validation, cat_features=categorical_features_indices)
 
+# # earlystop-model
+# earlystop_params = params.copy()
+# earlystop_params.update(
+#     {
+#         'od_type': 'Iter',
+#         'od_wait': 100
+#     }
+# )
+# earlystop_model = cb.CatBoostClassifier(**earlystop_params)
+# earlystop_model.fit(train_pool, eval_set=validate_pool)
+# print('earlystop model validation accuracy: {:.4}'.format(
+#     accuracy_score(y_validation, earlystop_model.predict(x_validation))
+# ))
+# test_label = earlystop_model.predict(test_set)
+
+# best_model
+# params.update(
+#     {
+#         'od_type': 'Iter',
+#         'od_wait': 100
+#     }
+# )
 best_model = cb.CatBoostClassifier(**params)
 best_model.fit(train_pool, eval_set=validate_pool)
 print('Best model validation accuracy: {:.4}'.format(
     accuracy_score(y_validation, best_model.predict(x_validation))
 ))
-
 test_label = best_model.predict(test_set)
+
 print(list(test_label).count(0))
 
 # 将预测结果保存并写入文件
@@ -141,6 +163,6 @@ del test_submit['score']
 test_submit = pd.merge(test_submit, final_test_set, on='id', how='left')
 test_submit.rename(columns={'label': 'score'}, inplace=True)
 
-# # 写入文件
-# save_test_res_name = './test_label_folder/set_params_cb_classifier_1104_depth_drop0.4_learn0.1.csv'
-# test_submit.to_csv(save_test_res_name, sep=',', header=True, index=False)
+# 写入文件
+save_test_res_name = './test_label_folder/random_rate999_set_params_cb_train0.95_1104_depth_drop0.4_learn0.1.csv'
+test_submit.to_csv(save_test_res_name, sep=',', header=True, index=False)
