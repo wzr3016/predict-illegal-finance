@@ -72,7 +72,7 @@ for i in range(len(has_nan)):
 # 训练集填充缺失值，中位数填充
 for i in nan_list:
     # print(train_set[i].median())
-    train_set[i].fillna(train_set[i].mean(), inplace=True)
+    train_set[i].fillna(train_set[i].median(), inplace=True)
 # print(train_set.isnull().sum()>0)
 del train_set['label']
 # print(train_set.isnull().sum())
@@ -89,9 +89,10 @@ columns_to_fill = []
 for i in range(len(test_columns_names)):
     if test_nan_list[i]:
         columns_to_fill.append(test_columns_names[i])
+
 # 测试集填充缺失值,中位数填充
 for i in columns_to_fill:
-    test_set[i].fillna(test_set[i].mean(), inplace=True)
+    test_set[i].fillna(test_set[i].median(), inplace=True)
 
 # print(test_set)
 # test_set_array = test_set.to_numpy()
@@ -164,5 +165,5 @@ test_submit = pd.merge(test_submit, final_test_set, on='id', how='left')
 test_submit.rename(columns={'label': 'score'}, inplace=True)
 
 # 写入文件
-save_test_res_name = './test_label_folder/random_rate999_set_params_cb_train0.95_1104_depth_drop0.4_learn0.1.csv'
+save_test_res_name = './test_label_folder/random_rate999_set_params_cb_train0.95_1104_depth_drop0.4_fill_median.csv'
 test_submit.to_csv(save_test_res_name, sep=',', header=True, index=False)
