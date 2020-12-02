@@ -246,24 +246,37 @@ params = {
 }
 # best_model catboost
 best_model = cb.CatBoostClassifier(**params)
-best_model.fit(train_pool, eval_set=validate_pool)
-print('Best model f1: {:.4}'.format(
-    f1_score(y_validation, best_model.predict(x_validation))
-))
-test_label = best_model.predict_proba(test_after_drop)
+
 # print(type(test_label))
 # print(test_label.shape)
 
 # 预测times次数，取均值
 times = 20
 test_label = None
+score_list = []
 for i in range(times):
+    best_model.fit(train_pool, eval_set=validate_pool)
+    score_list.append(f1_score(y_validation, best_model.predict(x_validation)))
     if i == 0:
         test_label = best_model.predict_proba(test_after_drop)[:, 1]
     else:
         test_label += best_model.predict_proba((test_after_drop))[:, 1]
 test_label = test_label / times
+print(score_list)
+print('Best model f1: {:.4}'.format(np.array(score_list).mean()))
 print(np.sum(test_label < 0.5))
+
+# # 网格搜索优化参数
+# params_optimize = {
+#     "learning_rate": [0.03, 0.05],
+#     "max_depth": [5, 6, 7],
+#     "random_seed": [40, 50, 60]
+# }
+# grid_search = GridSearchCV(best_model, n_jobs=-1, param_grid=params_optimize, cv=5, scoring='f1', verbose=5)
+# grid_search.fit(x_train, y_train)
+# print("best", grid_search.best_estimator_)
+# print("best_score: ", grid_search.best_score_)
+# print("best_params: ", grid_search.best_params_)
 
 # # hyperopt metric optimize
 # space = {
@@ -338,7 +351,7 @@ print("code run time: ", code_end - code_start)
 
 # 写入测试结果
 test_data['score'] = test_label
-test_data[['id', 'score']].to_csv('./test_label_folder/all_datafile_catboost20_depth5_1201.csv', sep=',', header=True,
+test_data[['id', 'score']].to_csv('./test_label_folder/all_datafile_catboost20_depth5_1202.csv', sep=',', header=True,
                                   index=False)
 
 # # cv交叉验证
