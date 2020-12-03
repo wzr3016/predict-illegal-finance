@@ -251,7 +251,7 @@ best_model = cb.CatBoostClassifier(**params)
 # print(test_label.shape)
 
 # 预测times次数，取均值
-times = 20
+times = 5
 test_label = None
 score_list = []
 for i in range(times):
@@ -266,6 +266,7 @@ print(score_list)
 print('Best model f1: {:.4}'.format(np.array(score_list).mean()))
 print(np.sum(test_label < 0.5))
 
+
 # # 网格搜索优化参数
 # params_optimize = {
 #     "learning_rate": [0.03, 0.05],
@@ -277,6 +278,7 @@ print(np.sum(test_label < 0.5))
 # print("best", grid_search.best_estimator_)
 # print("best_score: ", grid_search.best_score_)
 # print("best_params: ", grid_search.best_params_)
+
 
 # # hyperopt metric optimize
 # space = {
@@ -351,7 +353,7 @@ print("code run time: ", code_end - code_start)
 
 # 写入测试结果
 test_data['score'] = test_label
-test_data[['id', 'score']].to_csv('./test_label_folder/all_datafile_catboost20_depth5_1202.csv', sep=',', header=True,
+test_data[['id', 'score']].to_csv('./test_label_folder/all_datafile_catboost0.85_depth5_1203.csv', sep=',', header=True,
                                   index=False)
 
 # # cv交叉验证
